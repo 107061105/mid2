@@ -309,13 +309,13 @@ void Feature_info() {
       uLCD.printf("\nGesture is:\n");
       if (gesture_index == 0) {
         uLCD.printf("\nID: RING\n\r");
-        uLCD.printf("\nSequence: %d\n", sequence_num);
+        uLCD.printf("\nSequence: %d\n", message_num+1);
       } else if (gesture_index == 1) {      // 45 degree
         uLCD.printf("\nID: SLOPE\n\r");
-        uLCD.printf("\nSequence: %d\n", sequence_num);
+        uLCD.printf("\nSequence: %d\n", message_num+1);
       } else if (gesture_index == 2) {      // 60 degree
         uLCD.printf("\nID: DOWN\n\r");
-        uLCD.printf("\nSequence: %d\n", sequence_num);
+        uLCD.printf("\nSequence: %d\n", message_num+1);
       }
 }
 
@@ -435,6 +435,7 @@ void selectAngle() {
     // Analyze the results to obtain a prediction
     gesture_index = PredictGesture(interpreter->output(0)->data.f);
     this_num = detect(lastACC, interpreter->output(0)->data.f);
+    sArray[ArrayIndex].sequence[iii] = this_num;
     for (int k = 0; k < 3; k++) lastACC[k] = interpreter->output(0)->data.f[k];
     iii++;
     sArray[ArrayIndex].num++;
@@ -447,15 +448,17 @@ void selectAngle() {
 
     // Produce an output
     if (gesture_index < label_num) {
-      error_reporter->Report(config.output_message[gesture_index]);
-      if (gesture_index == 0) select_angle = 30;
-      else if (gesture_index == 1) select_angle = 45;
-      else if (gesture_index == 2) select_angle = 60;
+      //error_reporter->Report(config.output_message[gesture_index]);
       queue.call(Feature_info);
       sArray[ArrayIndex].Gesture = gesture_index;
+      printf("%d\n", sArray[ArrayIndex].Gesture);
+      printf("%d\n", sArray[ArrayIndex].num);
+      for (int j = 0; j < sArray[ArrayIndex].num; j++) printf("%d", sArray[ArrayIndex].sequence[j]);
+      printf("\n");
       ArrayIndex++;
       iii = 0;
       queue.call(&publish_message, rpcClient);
+
     }
 
     if(off1) return;
@@ -473,11 +476,12 @@ void a(Arguments *in, Reply *out) {
   }
   led1 = 0;
   off1 = false;
-  for(int i = 0; i < 10; i++) {
+  /*for(int i = 0; i < 10; i++) {
     printf("%d\n", sArray[i].Gesture);
     printf("%d\n", sArray[i].num);
     for (int j = 0; j < sArray[i].num; j++) printf("%d", sArray[i].sequence[j]);
-  }
+    printf("\n");
+  }*/
   ThisThread::sleep_for(3000ms);
 }
 
