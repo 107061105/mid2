@@ -28,14 +28,10 @@ void b(Arguments *in, Reply *out);
 RPCFunction rpcGUI(&a, "a");
 RPCFunction rpcAD(&b, "b");
 
-typedef struct sNode {
-  int seq_num;
-  struct sNode *next;
-} node;
-
 typedef struct sSequence {
   int num;
-  node *sequence;
+  int Gesture;
+  int sequence[3000];
 } Sequence;
 
 Sequence sArray[10];
@@ -102,13 +98,12 @@ void messageArrived(MQTT::MessageData& md) {
 
     sprintf(payload, "Message arrived: %.*s\r\n", message.payloadlen, (char*)message.payload);
     printf("%s", payload);
-    if (strcmp((char*)message.payload, "GestureUI Confirm") == 0) {
+    if (strcmp((char*)message.payload, "GestureUI Confirm 10") == 0) {
       off1 = true;
     } else if (strcmp((char*)message.payload, "Over tilt angle") == 0) {
       tiltcount++;
       if (tiltcount >= 10) off2 = true;
     }
-    ++arrivedcount;
 }
 
 void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
@@ -226,7 +221,7 @@ int main() {
 
   for (int i = 0; i < 10; i++) {
     sArray[i].num = 0;
-    sArray[i].sequence = NULL;
+    for (int y = 0; y < 3000; y++) sArray[i].sequence[y] = 0;
   }
 
     wifi = WiFiInterface::get_default_instance();
@@ -311,16 +306,16 @@ int main() {
 
 void Feature_info() {
       uLCD.cls();
-      uLCD.printf("\n Classified gesture is:\n");
+      uLCD.printf("\nGesture is:\n");
       if (gesture_index == 0) {
-        uLCD.printf("\nGesture ID: RING:\n\r");
-        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
+        uLCD.printf("\nID: RING\n\r");
+        uLCD.printf("\nSequence: %d\n", sequence_num);
       } else if (gesture_index == 1) {      // 45 degree
-        uLCD.printf("\nGesture ID: SLOPE\n\r");
-        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
+        uLCD.printf("\nID: SLOPE\n\r");
+        uLCD.printf("\nSequence: %d\n", sequence_num);
       } else if (gesture_index == 2) {      // 60 degree
-        uLCD.printf("\nGesture ID: DOWN:\n\r");
-        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
+        uLCD.printf("\nID: DOWN\n\r");
+        uLCD.printf("\nSequence: %d\n", sequence_num);
       }
 }
 
@@ -332,16 +327,6 @@ void nowAngle(double value) {
       uLCD.cls();
       uLCD.printf("\n Now angle is:\n");
       uLCD.printf("\n %g\n", value);
-}
-
-node *newNode(bool s) {
-  node *n;
-
-  n = new(node);
-  n->seq_num = (int)s;
-  n->next = NULL;
-
-  return n;
 }
 
 bool detect(float *ACC1, float *ACC2) {
@@ -362,8 +347,7 @@ void selectAngle() {
   bool got_data = false;
   bool this_num = false;
   float lastACC[3] = {0, 0, 0};
-  node *tmp;
-  node *ttmp;
+  int iii = 0;
 
   // Set up logging.
   static tflite::MicroErrorReporter micro_error_reporter;
@@ -428,7 +412,7 @@ void selectAngle() {
 
   //error_reporter->Report("Set up successful...\n");
   ArrayIndex = 0;
-  tmp = sArray[ArrayIndex].sequence;
+  iii = 0;
   while (true) {
     // Attempt to read new data from the accelerometer
     got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -452,11 +436,7 @@ void selectAngle() {
     gesture_index = PredictGesture(interpreter->output(0)->data.f);
     this_num = detect(lastACC, interpreter->output(0)->data.f);
     for (int k = 0; k < 3; k++) lastACC[k] = interpreter->output(0)->data.f[k];
-    tmp = newNode(this_num);
-    ttmp = sArray[ArrayIndex].sequence;
-    //while (ttmp->next != NULL) ttmp = ttmp->next;
-    //ttmp->next = tmp;
-    printf("%d\n", tmp->seq_num);
+    iii++;
     sArray[ArrayIndex].num++;
 
     // Clear the buffer next time we read data
@@ -472,9 +452,13 @@ void selectAngle() {
       else if (gesture_index == 1) select_angle = 45;
       else if (gesture_index == 2) select_angle = 60;
       queue.call(Feature_info);
+      sArray[ArrayIndex].Gesture = gesture_index;
       ArrayIndex++;
-      //queue.call(&publish_message, rpcClient);
+      iii = 0;
+      queue.call(&publish_message, rpcClient);
     }
+
+    if(off1) return;
   }
 }
 
@@ -489,6 +473,12 @@ void a(Arguments *in, Reply *out) {
   }
   led1 = 0;
   off1 = false;
+  for(int i = 0; i < 10; i++) {
+    printf("%d\n", sArray[i].Gesture);
+    printf("%d\n", sArray[i].num);
+    for (int j = 0; j < sArray[i].num; j++) printf("%d", sArray[i].sequence[j]);
+  }
+  ThisThread::sleep_for(3000ms);
 }
 
 void record(void) {
