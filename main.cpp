@@ -20,8 +20,6 @@
 #include "uLCD_4DGL.h"
 using namespace std::chrono;
 
-
-
 // For run a RPC loop with two custom functions (operation modes): 
 // (1) gesture UI, and (2) tilt angle detection
 BufferedSerial pc(USBTX, USBRX);
@@ -29,6 +27,19 @@ void a(Arguments *in, Reply *out);
 void b(Arguments *in, Reply *out);
 RPCFunction rpcGUI(&a, "a");
 RPCFunction rpcAD(&b, "b");
+
+typedef struct sNode {
+  int seq_num;
+  struct sNode *next;
+} node;
+
+typedef struct sSequence {
+  int num;
+  node *sequence;
+} Sequence;
+
+Sequence sArray[10];
+int ArrayIndex = 0;
 
 // LED
 DigitalOut led1(LED1);
@@ -51,6 +62,7 @@ volatile bool closed = false;
 
 // The gesture index of the prediction
 int gesture_index;
+int sequence_num;
 
 // For measuring the tilt angle;
 int16_t rDataXYZ[3] = {0};
@@ -99,11 +111,11 @@ void messageArrived(MQTT::MessageData& md) {
     ++arrivedcount;
 }
 
-void publish_message1(MQTT::Client<MQTTNetwork, Countdown>* client) {
+void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
     message_num++;
     MQTT::Message message;
     char buff[100];
-    sprintf(buff, "GestureUI Confirm");
+    sprintf(buff, "GestureUI Confirm %d", message_num);
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
@@ -116,7 +128,7 @@ void publish_message1(MQTT::Client<MQTTNetwork, Countdown>* client) {
 }
 
 void publish_message2(MQTT::Client<MQTTNetwork, Countdown>* client) {
-    message_num++;
+    //message_num++;
     MQTT::Message message;
     char buff[100];
     sprintf(buff, "Over tilt angle");
@@ -212,6 +224,11 @@ void RPCcall(void) {
 
 int main() {
 
+  for (int i = 0; i < 10; i++) {
+    sArray[i].num = 0;
+    sArray[i].sequence = NULL;
+  }
+
     wifi = WiFiInterface::get_default_instance();
     if (!wifi) {
             printf("ERROR: No WiFiInterface found.\r\n");
@@ -292,21 +309,18 @@ int main() {
     return 0;
 }
 
-void Freq_info() {
+void Feature_info() {
       uLCD.cls();
-      uLCD.printf("\n Angle is:\n");
-      if (gesture_index == 0) {             // 30 degree
-            uLCD.printf("\n > 30\n");
-            uLCD.printf("\n   45\n");
-            uLCD.printf("\n   60\n");
+      uLCD.printf("\n Classified gesture is:\n");
+      if (gesture_index == 0) {
+        uLCD.printf("\nGesture ID: RING:\n\r");
+        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
       } else if (gesture_index == 1) {      // 45 degree
-            uLCD.printf("\n   30\n");
-            uLCD.printf("\n > 45\n");
-            uLCD.printf("\n   60\n");
+        uLCD.printf("\nGesture ID: SLOPE\n\r");
+        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
       } else if (gesture_index == 2) {      // 60 degree
-            uLCD.printf("\n   30\n");
-            uLCD.printf("\n   45\n");
-            uLCD.printf("\n > 60\n");
+        uLCD.printf("\nGesture ID: DOWN:\n\r");
+        uLCD.printf("\nSequence number of the event: %d\n", sequence_num);
       }
 }
 
@@ -320,10 +334,36 @@ void nowAngle(double value) {
       uLCD.printf("\n %g\n", value);
 }
 
+node *newNode(bool s) {
+  node *n;
+
+  n = new(node);
+  n->seq_num = (int)s;
+  n->next = NULL;
+
+  return n;
+}
+
+bool detect(float *ACC1, float *ACC2) {
+  double angle = 0;
+  double value = 0;
+  value = (ACC1[0] * ACC2[0] + ACC1[1] * ACC2[1] + ACC1[2] * ACC2[2]);
+  value = value / sqrt(ACC1[0] * ACC1[0] + ACC1[1] * ACC1[1] + ACC1[2] * ACC1[2]);
+  value = value / sqrt(ACC2[0] * ACC2[0] + ACC2[1] * ACC2[1] + ACC2[2] * ACC2[2]);
+  angle = acos(value);
+  angle = angle / 3.14 * 180;
+  if (angle > 15.0) return true;
+  else return false;
+}
+
 void selectAngle() {
     // Whether we should clear the buffer next time we fetch data
   bool should_clear_buffer = false;
   bool got_data = false;
+  bool this_num = false;
+  float lastACC[3] = {0, 0, 0};
+  node *tmp;
+  node *ttmp;
 
   // Set up logging.
   static tflite::MicroErrorReporter micro_error_reporter;
@@ -387,9 +427,9 @@ void selectAngle() {
   }
 
   //error_reporter->Report("Set up successful...\n");
-
+  ArrayIndex = 0;
+  tmp = sArray[ArrayIndex].sequence;
   while (true) {
-
     // Attempt to read new data from the accelerometer
     got_data = ReadAccelerometer(error_reporter, model_input->data.f,
                                  input_length, should_clear_buffer);
@@ -410,6 +450,14 @@ void selectAngle() {
 
     // Analyze the results to obtain a prediction
     gesture_index = PredictGesture(interpreter->output(0)->data.f);
+    this_num = detect(lastACC, interpreter->output(0)->data.f);
+    for (int k = 0; k < 3; k++) lastACC[k] = interpreter->output(0)->data.f[k];
+    tmp = newNode(this_num);
+    ttmp = sArray[ArrayIndex].sequence;
+    //while (ttmp->next != NULL) ttmp = ttmp->next;
+    //ttmp->next = tmp;
+    printf("%d\n", tmp->seq_num);
+    sArray[ArrayIndex].num++;
 
     // Clear the buffer next time we read data
     should_clear_buffer = gesture_index < label_num;
@@ -423,21 +471,15 @@ void selectAngle() {
       if (gesture_index == 0) select_angle = 30;
       else if (gesture_index == 1) select_angle = 45;
       else if (gesture_index == 2) select_angle = 60;
-      queue.call(Freq_info);
-    }
-
-    if (_confirm && select_angle) {
-      printf("Confirm!!!!, angle = %d\n", select_angle);
-      _confirm = false;
-      queue.call(Freq_confirm);
-      queue.call(&publish_message1, rpcClient);
-      return;
+      queue.call(Feature_info);
+      ArrayIndex++;
+      //queue.call(&publish_message, rpcClient);
     }
   }
 }
 
 void a(Arguments *in, Reply *out) {
-  int ccccc = 0;
+  sequence_num = 0;
   printf("Gesture UI Mode On!\n");
   // start a thread function
   mqtt_queue.call(selectAngle);
