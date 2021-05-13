@@ -24,7 +24,7 @@ PC/Python use RPC over serial to send a command to call gesture UI mode on mbed,
 The gesture UI function will start a thread function. In this mode, we let led1 to blink to indicate.
 In the thread function, user will detect gesture.
 
-![image](https://github.com/107061105/HW3/blob/master/Screenshot%20from%202021-05-09%2006-35-02.png)
+![image](https://github.com/107061105/mid2/blob/main/47471.jpg)
 
 Before confirmation, current selection will show the selection on uLCD.
 
