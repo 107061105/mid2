@@ -22,7 +22,7 @@ PC/Python use RPC over serial to send a command to call gesture UI mode on mbed,
 ![image](https://github.com/107061105/HW3/blob/master/Screenshot%20from%202021-05-09%2006-09-44.png)
 
 The gesture UI function will start a thread function. In this mode, we let led1 to blink to indicate.
-In the thread function, user will use gesture to select from a few threshold angles. For example, gesture "CIRCLE" is 30 degree; "SLOPE" is 45 degree, and "DOWN" is 60 degree.
+In the thread function, user will detect gesture.
 
 ![image](https://github.com/107061105/HW3/blob/master/Screenshot%20from%202021-05-09%2006-35-02.png)
 
