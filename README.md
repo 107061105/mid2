@@ -26,3 +26,10 @@ In the thread function, user will detect gesture.
 
 ![image](https://github.com/107061105/mid2/blob/main/47471.jpg)
 
+### 2.
+Extract features of the saved accelerator data values
+
+After the PC/Python send the stop command, please send another command to retrieve the saved feature data.
+Please plot the following together in two sub figures aligned with the event sequence order in PC/Python:
+The classified gesture events.
+The extracted features.
