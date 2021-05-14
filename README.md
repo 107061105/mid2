@@ -26,28 +26,3 @@ In the thread function, user will detect gesture.
 
 ![image](https://github.com/107061105/mid2/blob/main/47471.jpg)
 
-Before confirmation, current selection will show the selection on uLCD.
-
-![image](https://github.com/107061105/HW3/blob/master/47273.jpg)
-After the selection is confirmed with a user button, the selected threshold angle is published through WiFi/MQTT to a broker (run on PC).
-
-![image](https://github.com/107061105/HW3/blob/master/Screenshot%20from%202021-05-09%2006-37-03.png)
-
-After the PC/Python get the published confirmation from the broker, it sends a command to mbed to stop the guest UI mode. Therefore, the mbed is back to RPC loop. Also PC/Python will show the selection on screen.
-
-![image](https://github.com/107061105/HW3/blob/master/47274.jpg)
-
-### 2
-PC/Python use RPC over serial to send a command to call tilt angle detection mode on mbed.
-Before we start the tilt measurement, we should measure the reference acceleration vector. we let led1 and led2 to blink to show this initialization process for a user to place the mbed on table. We assume this is the stationary position of the mbed and use accelerometer to measure this acceleration vector as the reference (the direction should align with gravity.
-
-![image](https://github.com/107061105/HW3/blob/master/Screenshot%20from%202021-05-09%2006-37-19.png)
-
-The tilt angle function will start a thread function.
-After we initialize the gravity vector, we let led3 and led4 blinking to indicate for a user to tilt the mbed. In this mode, we use the accelerometer vectors to detect the tilt angles for each predefined period, e.g., 100ms. A MQTT message will publish if mbed tilts over the selected threshold degree to the stationary position.
-For each predefined period (100ms as above), please show the tilt angle on uLCD (so a user can determine how to tilt mbed).
-
-![image](https://github.com/107061105/HW3/blob/master/47275.jpg)
-
-If the tilt angle is over the selected threshold angle, mbed will publish the event and angle through WiFi/MQTT to a broker.
-After the PC/Python get a preset number of tilt events, e.g., 10, from the broker, it sends a command to mbed to stop the tilt detection mode. Therefore, the mbed is back to RPC loop. Also PC/Python will show all tilt events on screen.
